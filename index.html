@@ -2,10 +2,18 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="Explorá funciones matemáticas con las manos: pendiente, cociente incremental, derivadas y análisis completo, controlados por gestos frente a la cámara.">
 <meta name="theme-color" content="#04060f">
 <title>Math Particle Hands — Explorá matemáticas con tus manos</title>
+
+<!-- Instalable como app en el teléfono -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Math Hands">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,8 +92,8 @@
     <span class="ind" id="ind-mode"><i class="dot"></i><span class="ind-text">Modo: —</span></span>
   </div>
   <div class="tb-right">
-    <button id="btn-change-fn" class="btn-sm" type="button">Cambiar función</button>
-    <button id="btn-camera" class="btn-sm" type="button">Activar cámara</button>
+    <button id="btn-change-fn" class="btn-sm" type="button" title="Cambiar función"><span class="ico">ƒ</span><span class="lbl">Cambiar función</span></button>
+    <button id="btn-camera" class="btn-sm" type="button" title="Activar cámara"><span class="ico">◉</span><span class="lbl">Activar cámara</span></button>
     <button id="btn-sound" class="btn-icon" type="button" aria-label="Silenciar sonidos" title="Sonido">
       <span class="icon-on">♪</span><span class="icon-off">✕</span>
     </button>

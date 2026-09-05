@@ -10,6 +10,8 @@
  * con los controles manuales.
  */
 
+import { device } from './device.js';
+
 export const CAMERA_STATE = {
   OFF: 'off',
   STARTING: 'starting',
@@ -49,7 +51,7 @@ export class CameraManager {
     this._raf = 0;
     this._busy = false;
     this._lastSend = 0;
-    this.detectionInterval = 1000 / 30;   // detección a 30 fps
+    this.detectionInterval = 1000 / device.detectionFps;
     this._stopped = true;
   }
 
@@ -111,7 +113,7 @@ export class CameraManager {
       });
       this.hands.setOptions({
         maxNumHands: 2,
-        modelComplexity: 1,
+        modelComplexity: device.handModelComplexity,
         minDetectionConfidence: 0.6,
         minTrackingConfidence: 0.6,
         selfieMode: true,
@@ -133,7 +135,8 @@ export class CameraManager {
   }
 
   async _openStream() {
-    const ideal = { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false };
+    const { width, height } = device.captureSize;
+    const ideal = { video: { width: { ideal: width }, height: { ideal: height }, facingMode: 'user' }, audio: false };
     try {
       return await navigator.mediaDevices.getUserMedia(ideal);
     } catch (err) {

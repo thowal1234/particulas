@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Math Particle Hands">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1030"/>
+      <stop offset="1" stop-color="#04060f"/>
+    </linearGradient>
+    <linearGradient id="curve" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#22e0ff"/>
+      <stop offset="0.55" stop-color="#4d7cff"/>
+      <stop offset="1" stop-color="#a06bff"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Ejes -->
+  <g stroke="rgba(150,190,255,0.30)" stroke-width="3">
+    <line x1="72" y1="256" x2="440" y2="256"/>
+    <line x1="256" y1="72" x2="256" y2="440"/>
+  </g>
+
+  <!-- Curva cúbica: la forma de f(x) = x³ − 3x² + 2 -->
+  <path d="M 96 404 C 150 232, 196 148, 256 214 C 316 280, 356 300, 416 128"
+        fill="none" stroke="url(#curve)" stroke-width="17"
+        stroke-linecap="round" filter="url(#glow)"/>
+
+  <!-- Recta tangente en (256, 214): punto de unión de las dos curvas de Bézier
+       y por tanto un punto real de la curva. La dirección es la de sus controles
+       adyacentes, así que es la tangente auténtica, no una decoración. -->
+  <line x1="189" y1="140" x2="323" y2="288" stroke="#ffb457" stroke-width="9"
+        stroke-linecap="round" opacity="0.95"/>
+
+  <!-- Punto de análisis -->
+  <circle cx="256" cy="214" r="12" fill="#ffb457"/>
+
+  <!-- Partículas -->
+  <g fill="#22e0ff">
+    <circle cx="126" cy="358" r="7" opacity="0.85"/>
+    <circle cx="182" cy="232" r="6" opacity="0.7"/>
+    <circle cx="330" cy="286" r="6" opacity="0.7"/>
+    <circle cx="392" cy="176" r="7" opacity="0.85"/>
+  </g>
+  <g fill="#a06bff">
+    <circle cx="216" cy="176" r="5" opacity="0.75"/>
+    <circle cx="300" cy="352" r="5" opacity="0.75"/>
+  </g>
+</svg>

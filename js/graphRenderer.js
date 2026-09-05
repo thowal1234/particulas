@@ -8,6 +8,7 @@
  */
 
 import { MathEngine, fmtNum } from './mathEngine.js';
+import { device } from './device.js';
 
 export const COLORS = {
   f: '#22e0ff',
@@ -55,7 +56,7 @@ export class GraphRenderer {
       this._curveCache = { sig };
     }
     const { view } = this;
-    const n = Math.max(400, Math.min(2400, Math.round(view.width * 1.4)));
+    const n = Math.max(320, Math.min(device.maxCurveSamples, Math.round(view.width * 1.4)));
     const pad = view.spanX * 0.02;
     const s = engine.sample(which, view.xMin - pad, view.xMax + pad, n);
     // Un salto mayor que ~1,5 pantallas entre muestras contiguas es una asíntota

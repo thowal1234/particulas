@@ -13,6 +13,7 @@
  */
 
 import { clamp } from './view.js';
+import { device } from './device.js';
 
 const THREE = () => window.THREE;
 
@@ -68,14 +69,16 @@ export class ParticleRenderer {
 
     this.renderer = new T.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setClearColor(0x000000, 0);
-    this.dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    this.dpr = Math.min(window.devicePixelRatio || 1, device.maxDpr);
     this.renderer.setPixelRatio(this.dpr);
 
     this.scene = new T.Scene();
     this.camera = new T.OrthographicCamera(-10, 10, 10, -10, -500, 500);
     this.scene.add(this.camera);
 
-    this.maxCount = 20000;
+    // El buffer se reserva al máximo de la escalera del dispositivo: subir de
+    // calidad después sólo cambia el drawRange, sin reasignar memoria.
+    this.maxCount = device.qualityLevels[0];
     this.count = this.maxCount;
 
     const N = this.maxCount;
@@ -126,7 +129,7 @@ export class ParticleRenderer {
   }
 
   setQuality(count) {
-    this.count = clamp(Math.round(count), 1500, this.maxCount);
+    this.count = clamp(Math.round(count), 800, this.maxCount);
     this.geo.setDrawRange(0, this.count);
   }
 
@@ -164,7 +167,7 @@ export class ParticleRenderer {
     const N = this.count;
 
     // Malla de muestreo compartida: evita evaluar la función 20.000 veces
-    const gridN = 900;
+    const gridN = device.curveGridSamples;
     const pad = view.spanX * 0.05;
     const gf = engine.sample('f', view.xMin - pad, view.xMax + pad, gridN);
     const gd = (mode === 'derivatives') ? engine.sample('df', view.xMin - pad, view.xMax + pad, gridN) : null;

@@ -255,6 +255,7 @@ export class UiController {
     for (const el of [this.el.topbar, this.el.rail, this.el.mathPanel, this.el.explain, this.el.controls]) {
       if (el) el.hidden = false;
     }
+    this._trackTopbarHeight();
   }
 
   // ── Barra superior e indicadores ────────────────────────────────────────────
@@ -274,10 +275,39 @@ export class UiController {
   setCameraButton(state) {
     const b = this.el.btnCamera;
     if (!b) return;
-    b.textContent = state === 'on' ? 'Apagar cámara'
+    const label = state === 'on' ? 'Apagar cámara'
       : state === 'starting' ? 'Iniciando…' : 'Activar cámara';
+    // Sólo el rótulo: el icono se conserva para cuando el texto se oculta en móvil
+    const lbl = b.querySelector('.lbl');
+    if (lbl) lbl.textContent = label; else b.textContent = label;
+    b.title = label;
     b.disabled = state === 'starting';
   }
+
+  /**
+   * Publica la altura real de la barra superior como variable CSS.
+   * La barra cambia de alto al reordenarse en pantallas angostas, así que
+   * fijar un valor a mano hacía que la vista de cámara se le montara encima.
+   */
+  _trackTopbarHeight() {
+    const el = this.el.topbar;
+    if (!el) return;
+    let last = -1;
+    this.syncChrome = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      if (h > 0 && h !== last) {
+        last = h;
+        document.documentElement.style.setProperty('--topbar-h', `${h}px`);
+      }
+    };
+    this.syncChrome();
+    if (window.ResizeObserver) new ResizeObserver(this.syncChrome).observe(el);
+    window.addEventListener('resize', this.syncChrome);
+    window.addEventListener('orientationchange', () => setTimeout(this.syncChrome, 200));
+  }
+
+  /** Sobrescrito por _trackTopbarHeight; no hace nada antes de mostrar la app. */
+  syncChrome() {}
 
   setSoundEnabled(on) { document.body.classList.toggle('muted', !on); }
 

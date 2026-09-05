@@ -38,6 +38,43 @@ teclas **0–5**, y x₀ y h tienen deslizadores. La aplicación es 100 % usable
 
 ---
 
+## En el teléfono
+
+Funciona en vertical y en horizontal, y es **instalable**: desde Chrome o Safari,
+«Agregar a pantalla de inicio» la abre a pantalla completa con su propio icono.
+
+Un teléfono no aguanta los mismos parámetros que una notebook. `js/device.js` decide
+el presupuesto una sola vez y, a partir de ahí, la calidad se sigue adaptando sola
+según los fps reales:
+
+| | Escritorio | Teléfono |
+|---|---|---|
+| Partículas (escalón inicial) | 20.000 | 7.000 — o 4.000 si declara pocos núcleos o poca memoria |
+| devicePixelRatio máximo | 1,75 | 1,25 |
+| Complejidad del modelo de manos | 1 | 0 (bastante más rápido) |
+| Detección de manos | 30 fps | 18 fps |
+| Captura de cámara | 1280×720 | 640×480 |
+| Encuadre inicial | x ∈ [−10, 10] | x ∈ [−6,5 , 6,5] |
+
+Otros detalles pensados para el móvil: se respetan las zonas seguras del notch y del
+indicador de inicio (`env(safe-area-inset-*)`); la altura usa `100dvh`, así que la
+barra de direcciones al aparecer u ocultarse no descoloca nada; `touch-action` está
+desactivado sobre la gráfica —para que arrastrar no haga scroll de la página ni el
+pellizco haga zoom del navegador— pero habilitado dentro de los paneles; los objetivos
+táctiles suben a 44 px; y al rotar se reencuadra con reintentos, porque iOS dispara
+`orientationchange` **antes** de actualizar `innerWidth`.
+
+En horizontal la interfaz cambia de disposición: el selector de modos pasa a la
+izquierda y el panel a la derecha, que aprovecha mucho mejor una pantalla ancha y
+baja. En teléfonos chicos en horizontal la miniatura de cámara se oculta por falta de
+sitio; el gesto detectado se sigue viendo en el indicador.
+
+La barra superior y los paneles nunca se solapan porque ninguno usa alturas fijas
+adivinadas: los paneles viven en un contenedor flex y la barra publica su alto real
+en la variable CSS `--topbar-h`.
+
+---
+
 ## Motor matemático
 
 Los resultados **nunca** provienen de una IA. Se calculan con
@@ -159,6 +196,9 @@ js/uiController.js             Todo el acceso al DOM
 js/explanations.js             Explicaciones en español, sin IA
 js/aiExplainer.js              Cliente del endpoint opcional
 js/audioFx.js                  Sonidos sintetizados con WebAudio
+js/device.js                   Presupuesto de rendimiento según el dispositivo
+manifest.webmanifest           Instalable como app en el teléfono
+icons/                         Iconos (SVG + PNG 180/192/512)
 api/explain.js                 Endpoint serverless (Vercel)
 netlify/functions/explain.js   Endpoint serverless (Netlify)
 tests/index.html               Suite de tests

@@ -13,6 +13,7 @@ import { UiController } from './uiController.js';
 import { AudioFx } from './audioFx.js';
 import { AiExplainer } from './aiExplainer.js';
 import { explainFor } from './explanations.js';
+import { device } from './device.js';
 
 // ── Estado ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ let lastViewSignature = '';
 let particleRebuildAt = 0;
 let uiUpdateAt = 0;
 let analysisAt = 0;
+let chromeSyncAt = 0;
 let aiAbort = null;
 
 // Objetivos suavizados provenientes de la mano
@@ -45,9 +47,10 @@ let targetX0 = state.x0;
 let targetLogH = Math.log10(state.h);
 let targetSpan = null;
 
-// Calidad adaptativa
-const perf = { frames: 0, elapsed: 0, level: 1, lastChange: 0 };
-const QUALITY_LEVELS = [20000, 13000, 8000, 4500];
+// Calidad adaptativa. En móvil se arranca en el escalón más alto de una
+// escalera ya reducida; en escritorio se deja un escalón de margen.
+const QUALITY_LEVELS = device.qualityLevels;
+const perf = { frames: 0, elapsed: 0, level: device.mobile ? 0 : 1, lastChange: 0 };
 
 // ── Arranque ──────────────────────────────────────────────────────────────────
 
@@ -98,7 +101,7 @@ function boot() {
   camera.onStateChange = handleCameraState;
 
   bindViewportInteraction();
-  window.addEventListener('resize', onResize);
+  bindViewportResize();
 
   if (!window.katex) {
     ui.toast('KaTeX no se pudo cargar: las fórmulas se muestran en texto plano.', '', 5200);
@@ -396,7 +399,7 @@ function autoFit() {
   const engine = state.engine;
   if (!engine.ready) return;
 
-  view.spanX = 20;
+  view.spanX = device.defaultSpanX;
   view.cx = Math.abs(state.x0) > 8 ? state.x0 : 0;
   view.cy = 0;
 
@@ -463,7 +466,35 @@ function touchDistance(ev) {
   return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
 
-function onResize() { resize(); graph?.resize(); particles?.resize(); invalidateView(); }
+/**
+ * En el escritorio alcanza con el evento resize. En el teléfono hacen falta dos
+ * cosas más: al rotar, iOS dispara orientationchange ANTES de que innerWidth /
+ * innerHeight tengan los valores nuevos (de ahí los reintentos), y la barra de
+ * direcciones al mostrarse u ocultarse cambia la altura útil sin emitir resize
+ * en algunos navegadores (de ahí visualViewport).
+ */
+function bindViewportResize() {
+  let pending = 0;
+  const schedule = () => {
+    cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(onResize);
+  };
+
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', () => {
+    schedule();
+    setTimeout(onResize, 150);
+    setTimeout(onResize, 500);
+  });
+  window.visualViewport?.addEventListener('resize', schedule);
+}
+
+function onResize() {
+  const w = Math.round(window.innerWidth);
+  const h = Math.round(window.innerHeight);
+  if (w === view.width && h === view.height) return;
+  resize(); graph?.resize(); particles?.resize(); invalidateView();
+}
 
 function resize() { view.resize(window.innerWidth, window.innerHeight); }
 
@@ -534,6 +565,14 @@ function frame(dt, now) {
     particles.render(dt);
   }
   graph.draw(state);
+
+  // El alto de la barra superior se revisa dos veces por segundo. Los eventos
+  // resize/orientationchange ya lo actualizan, pero no todos los navegadores
+  // los emiten de forma fiable al rotar; así el layout se corrige solo.
+  if (now - chromeSyncAt > 500) {
+    chromeSyncAt = now;
+    ui.syncChrome();
+  }
 
   // Texto de la interfaz a ~18 Hz: suficiente y mucho más barato que 60 Hz
   if (now - uiUpdateAt > 55) {
