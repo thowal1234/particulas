@@ -75,6 +75,37 @@ en la variable CSS `--topbar-h`.
 
 ---
 
+## Tipografía y modo proyector
+
+La interfaz usa **Inter variable** con el eje `opsz` activo
+(`font-optical-sizing: auto`): la letra se redibuja según el tamaño en vez de
+escalar siempre el mismo dibujo, más abierta en los cuerpos chicos y más
+ajustada en los títulos.
+
+Todos los valores numéricos van en **cifras tabulares** (`tabular-nums`). No es
+un detalle estético: con las cifras proporcionales que Inter trae por defecto
+cada dígito tiene un ancho distinto —el `1` mide 5,98 px y el `4`, 9,58— así
+que un número de cuatro cifras se corría hasta 14 px al cambiar de valor, y el
+panel entero temblaba mientras movías la mano. Con cifras tabulares los diez
+dígitos miden exactamente lo mismo y el número queda quieto. `slashed-zero`
+distingue el 0 de la O.
+
+El botón **A⁺** de la barra superior activa el **modo proyector**, pensado para
+el aula: a cuatro o cinco metros, y con la pérdida de contraste de un proyector,
+las versalitas de la interfaz de escritorio se vuelven una mancha. El modo sube
+la tipografía un 40 %, refuerza los dos grises de texto, ensancha los paneles y
+vuelve el cristal casi opaco. La preferencia se recuerda en `localStorage`.
+
+Está implementado con **una sola variable**: cada `font-size` de la hoja de
+estilos es `calc(Npx * var(--fs-scale))`, así que `body.projector` sólo cambia
+`--fs-scale` y reescala los 73 tamaños de una vez, sin redefinir ni una regla.
+
+Los grises de texto se subieron a **7,9:1** y **4,5:1** de contraste sobre el
+fondo. Los valores anteriores daban 5,4:1 y 2,1:1; este último quedaba muy por
+debajo del mínimo AA de 4,5:1.
+
+---
+
 ## Motor matemático
 
 Los resultados **nunca** provienen de una IA. Se calculan con

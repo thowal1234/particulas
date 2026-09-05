@@ -65,6 +65,7 @@ function boot() {
     onToggleLock: handleToggleLock,
     onToggleCamera: handleToggleCamera,
     onToggleSound: handleToggleSound,
+    onToggleProjector: handleToggleProjector,
     onViewAction: handleViewAction,
     onAiExplain: handleAiExplain,
     onAiSaveEndpoint: handleAiSaveEndpoint,
@@ -83,6 +84,7 @@ function boot() {
   audio = new AudioFx();
   ai = new AiExplainer();
   ui.setSoundEnabled(audio.enabled);
+  ui.setProjector(loadProjector());
 
   resize();
   graph = new GraphRenderer(document.getElementById('graph-canvas'), view);
@@ -341,6 +343,29 @@ function updateLockUi() {
   const on = camera?.state === CAMERA_STATE.ON;
   ui.setLockState('x0', state.handControlsX0, on);
   ui.setLockState('h', state.handControlsH, on);
+}
+
+
+// ── Modo proyector ────────────────────────────────────────────────────────────
+
+const PROJECTOR_KEY = 'mph.projector';
+
+function loadProjector() {
+  try { return localStorage.getItem(PROJECTOR_KEY) === '1'; } catch { return false; }
+}
+
+/**
+ * Alterna el modo proyector. Toda la implementación vive en CSS (una variable
+ * --fs-scale y los dos grises de texto): acá sólo se recuerda la preferencia,
+ * igual que con el sonido y el endpoint de IA.
+ */
+function handleToggleProjector() {
+  const on = !document.body.classList.contains('projector');
+  try { localStorage.setItem(PROJECTOR_KEY, on ? '1' : '0'); } catch { /* modo privado */ }
+  ui.setProjector(on);
+  ui.toast(on
+    ? 'Modo proyector: tipografía más grande y contraste reforzado para proyectar en el aula.'
+    : 'Modo proyector desactivado.', '', 3400);
 }
 
 function handleToggleSound() {

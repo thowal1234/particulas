@@ -59,6 +59,7 @@ export class UiController {
       btnChangeFn: $('btn-change-fn'),
       btnCamera: $('btn-camera'),
       btnSound: $('btn-sound'),
+      btnProjector: $('btn-projector'),
       btnHelp: $('btn-help'),
 
       rail: $('mode-rail'),
@@ -143,6 +144,7 @@ export class UiController {
     e.btnChangeFn?.addEventListener('click', () => this.h.onChangeFunction?.());
     e.btnCamera?.addEventListener('click', () => this.h.onToggleCamera?.());
     e.btnSound?.addEventListener('click', () => this.h.onToggleSound?.());
+    e.btnProjector?.addEventListener('click', () => this.h.onToggleProjector?.());
     e.btnHelp?.addEventListener('click', () => this.showTutorial());
     e.tutClose?.addEventListener('click', () => this.hideTutorial());
 
@@ -310,6 +312,16 @@ export class UiController {
   syncChrome() {}
 
   setSoundEnabled(on) { document.body.classList.toggle('muted', !on); }
+
+  /** Modo proyector: sólo cambia --fs-scale y los grises; no toca la lógica. */
+  setProjector(on) {
+    document.body.classList.toggle('projector', !!on);
+    this.el.btnProjector?.classList.toggle('active', !!on);
+    this.el.btnProjector?.setAttribute('aria-pressed', on ? 'true' : 'false');
+    // La barra superior cambia de alto al reescalar la tipografía y los
+    // paneles se posicionan a partir de --topbar-h: hay que republicarlo.
+    this.syncChrome?.();
+  }
 
   setPreviewVisible(on) { this.el.previewWrap.hidden = !on; }
 
