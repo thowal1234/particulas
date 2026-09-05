@@ -8,7 +8,7 @@ Evolución del proyecto original de partículas: se conservan Three.js, MediaPip
 Hands, el morphing de partículas y la estética, pero ahora los gestos operan
 sobre la función que ingresa el usuario.
 
-**Demo:** https://miguejacosta.github.io/particulas/
+**Demo:** https://thowal1234.github.io/particulas/
 
 ---
 
