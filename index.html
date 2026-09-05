@@ -2,446 +2,245 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Math Particle Hands — Arte Matemático</title>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif; }
-canvas { display:block; position:absolute; top:0; left:0; }
-video  { display:none; }
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="Explorá funciones matemáticas con las manos: pendiente, cociente incremental, derivadas y análisis completo, controlados por gestos frente a la cámara.">
+<meta name="theme-color" content="#04060f">
+<title>Math Particle Hands — Explorá matemáticas con tus manos</title>
 
-#hand-canvas { z-index:5; pointer-events:none; }
-
-.hud {
-  position:fixed; top:0; left:0; right:0; bottom:0;
-  pointer-events:none; z-index:10;
-}
-#status {
-  position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
-  color:rgba(255,255,255,0.55); font-size:12px; letter-spacing:0.12em;
-  text-transform:uppercase; z-index:20; text-shadow:0 0 12px rgba(255,255,255,0.3);
-  text-align:center;
-}
-#shape-label {
-  position:fixed; top:22px; left:50%; transform:translateX(-50%);
-  color:rgba(255,255,255,0.75); font-size:13px; letter-spacing:0.22em;
-  text-transform:uppercase; z-index:20; transition:opacity 0.4s;
-  text-align:center;
-}
-#shape-eq {
-  position:fixed; top:46px; left:50%; transform:translateX(-50%);
-  color:rgba(255,255,255,0.4); font-size:12px; letter-spacing:0.05em;
-  font-family:'Cambria Math','Latin Modern Math',Georgia,serif; font-style:italic;
-  z-index:20; transition:opacity 0.4s; text-align:center;
-  white-space:nowrap;
-}
-#gesture-hint {
-  position:fixed; top:0; left:0; width:100%; height:100%;
-  display:flex; align-items:center; justify-content:center;
-  z-index:30; background:rgba(0,0,0,0.88); flex-direction:column; gap:18px;
-  padding:20px;
-}
-#gesture-hint h2 {
-  color:#fff; font-size:24px; font-weight:300; letter-spacing:0.08em;
-}
-#gesture-hint p  {
-  color:rgba(255,255,255,0.55); font-size:13px; text-align:center; line-height:1.9;
-  max-width:560px;
-}
-#start-btn {
-  margin-top:10px; padding:12px 36px;
-  border:1px solid rgba(255,255,255,0.3); background:transparent;
-  color:#fff; border-radius:30px; cursor:pointer; font-size:14px;
-  letter-spacing:0.06em; transition:all 0.2s;
-}
-#start-btn:hover { background:rgba(255,255,255,0.1); border-color:#fff; }
-
-.legend {
-  position:fixed; right:24px; top:50%; transform:translateY(-50%);
-  z-index:20; display:flex; flex-direction:column; gap:11px;
-  background:rgba(0,0,0,0.25); padding:14px 16px; border-radius:10px;
-  border:1px solid rgba(255,255,255,0.06);
-}
-.lg-item {
-  display:flex; align-items:center; gap:10px;
-  color:rgba(255,255,255,0.55); font-size:11px; letter-spacing:0.05em;
-}
-.lg-dot {
-  width:9px; height:9px; border-radius:50%; flex-shrink:0;
-  box-shadow:0 0 8px currentColor;
-}
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body class="booting">
 
-<video id="vid" playsinline></video>
-<canvas id="hand-canvas"></canvas>
+<!-- ══ Capas visuales ═══════════════════════════════════════════════════════ -->
+<canvas id="particle-canvas" aria-hidden="true"></canvas>
+<canvas id="graph-canvas" aria-hidden="true"></canvas>
+<video id="video" playsinline muted aria-hidden="true"></video>
 
-<div id="gesture-hint">
-  <h2>✦ Math Particle Hands</h2>
-  <p>
-    Arte matemático interactivo con la cámara<br>
-    Mano <strong>derecha</strong> — selecciona la forma según dedos extendidos<br><br>
-    <strong style="color:rgba(255,255,255,0.85)">0</strong> → Sólido de revolución &nbsp;|&nbsp;
-    <strong style="color:rgba(255,255,255,0.85)">2</strong> → Toro &nbsp;|&nbsp;
-    <strong style="color:rgba(255,255,255,0.85)">3</strong> → Möbius<br>
-    <strong style="color:rgba(255,255,255,0.85)">4</strong> → Atractor de Lorenz &nbsp;|&nbsp;
-    <strong style="color:rgba(255,255,255,0.85)">5</strong> → Onda <em>z = cos(2r)·e<sup>−r²/4</sup></em><br><br>
-    Puño cerrado <strong>empuja</strong> las partículas · Mano <strong>izquierda</strong> (pellizco) → zoom
-  </p>
-  <button id="start-btn" onclick="startApp()">Activar cámara</button>
+<!-- ══ Pantalla inicial ═════════════════════════════════════════════════════ -->
+<div id="start-screen" role="dialog" aria-modal="true" aria-labelledby="start-title">
+  <div class="start-card">
+    <div class="brand">
+      <span class="brand-mark">∫</span>
+      <div>
+        <h1 id="start-title">MATH PARTICLE HANDS</h1>
+        <p class="tagline">Explorá funciones matemáticas con tus manos.</p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="fn-input">Ingresá una función</label>
+      <input id="fn-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+             placeholder="f(x) = x² + 3x - 4" aria-describedby="fn-feedback">
+      <div id="fn-preview" class="fn-preview" aria-live="polite"></div>
+      <div id="fn-feedback" class="feedback" role="status"></div>
+    </div>
+
+    <div class="field field-inline">
+      <div>
+        <label for="x0-input">Punto de análisis x₀ <span class="opt">(opcional)</span></label>
+        <input id="x0-input" type="text" autocomplete="off" spellcheck="false" placeholder="2" value="2">
+      </div>
+    </div>
+
+    <div class="examples">
+      <span class="examples-label">Ejemplos rápidos</span>
+      <div class="chips" id="example-chips">
+        <button type="button" class="chip" data-fn="x^2">x²</button>
+        <button type="button" class="chip" data-fn="x^3 - 3x">x³ − 3x</button>
+        <button type="button" class="chip" data-fn="sin(x)">sin(x)</button>
+        <button type="button" class="chip" data-fn="cos(x)">cos(x)</button>
+        <button type="button" class="chip" data-fn="e^x">eˣ</button>
+        <button type="button" class="chip" data-fn="ln(x)">ln(x)</button>
+        <button type="button" class="chip" data-fn="1/x">1/x</button>
+        <button type="button" class="chip" data-fn="sqrt(x)">√x</button>
+        <button type="button" class="chip" data-fn="2x + 5">2x + 5</button>
+      </div>
+    </div>
+
+    <div class="start-actions">
+      <button id="start-btn" class="btn-primary" type="button">COMENZAR EXPERIENCIA</button>
+      <button id="start-nocam" class="btn-ghost" type="button">Continuar sin cámara</button>
+    </div>
+    <p class="hint-small">
+      Sintaxis: usá <code>^</code> para potencias y <code>*</code> para multiplicar.
+      Disponibles: <code>sin cos tan sqrt cbrt ln log10 exp abs</code>.
+    </p>
+  </div>
 </div>
 
-<div class="legend">
-  <div class="lg-item"><div class="lg-dot" style="background:#ff5a8a;color:#ff5a8a"></div>0 → Revolución</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#ffb347;color:#ffb347"></div>2 → Toro</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#a07cff;color:#a07cff"></div>3 → Möbius</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#00e6c3;color:#00e6c3"></div>4 → Lorenz</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#56a0ff;color:#56a0ff"></div>5 → Onda 3D</div>
+<!-- ══ Barra superior ═══════════════════════════════════════════════════════ -->
+<header id="topbar" class="glass" hidden>
+  <div class="tb-left">
+    <span class="tb-label">Función actual</span>
+    <span id="fn-current" class="fn-current"></span>
+  </div>
+  <div class="tb-mid">
+    <span class="ind" id="ind-camera"><i class="dot"></i><span class="ind-text">Cámara: apagada</span></span>
+    <span class="ind" id="ind-hands"><i class="dot"></i><span class="ind-text">Manos: sin detectar</span></span>
+    <span class="ind" id="ind-mode"><i class="dot"></i><span class="ind-text">Modo: —</span></span>
+  </div>
+  <div class="tb-right">
+    <button id="btn-change-fn" class="btn-sm" type="button">Cambiar función</button>
+    <button id="btn-camera" class="btn-sm" type="button">Activar cámara</button>
+    <button id="btn-sound" class="btn-icon" type="button" aria-label="Silenciar sonidos" title="Sonido">
+      <span class="icon-on">♪</span><span class="icon-off">✕</span>
+    </button>
+    <button id="btn-help" class="btn-icon" type="button" aria-label="Ver guía de gestos" title="Guía de gestos">?</button>
+  </div>
+</header>
+
+<!-- ══ Zona de paneles ══════════════════════════════════════════════════════
+     En escritorio este contenedor no genera caja (display:contents) y cada panel
+     conserva su posición fija. Por debajo de 980 px se convierte en una columna
+     flex anclada abajo, de modo que los paneles no pueden superponerse. -->
+<div id="dock">
+
+<!-- ══ Selector manual de modos (funciona sin cámara) ═══════════════════════ -->
+<nav id="mode-rail" class="glass" hidden aria-label="Modos de exploración">
+  <span class="rail-title">Modo</span>
+  <button class="mode-btn" data-mode="particles" data-fingers="0" type="button">
+    <span class="mb-icon">✊</span><span class="mb-text"><b>Partículas</b><i>0 dedos</i></span>
+  </button>
+  <button class="mode-btn" data-mode="slope" data-fingers="1" type="button">
+    <span class="mb-icon">☝</span><span class="mb-text"><b>Pendiente</b><i>1 dedo</i></span>
+  </button>
+  <button class="mode-btn" data-mode="quotient" data-fingers="2" type="button">
+    <span class="mb-icon">✌</span><span class="mb-text"><b>Cociente incremental</b><i>2 dedos</i></span>
+  </button>
+  <button class="mode-btn" data-mode="derivatives" data-fingers="3" type="button">
+    <span class="mb-icon">🤟</span><span class="mb-text"><b>Derivadas</b><i>3 dedos</i></span>
+  </button>
+  <button class="mode-btn" data-mode="analysis" data-fingers="4" type="button">
+    <span class="mb-icon">🖖</span><span class="mb-text"><b>Análisis completo</b><i>4 dedos</i></span>
+  </button>
+  <button class="mode-btn" data-mode="visual" data-fingers="5" type="button">
+    <span class="mb-icon">✋</span><span class="mb-text"><b>Visualización</b><i>5 dedos</i></span>
+  </button>
+</nav>
+
+<!-- Columna derecha: en escritorio es una columna flex de altura completa,
+     así el panel matemático y el de explicación nunca se solapan. -->
+<div id="right-column">
+
+<!-- ══ Panel matemático ═════════════════════════════════════════════════════ -->
+<aside id="math-panel" class="glass" hidden aria-live="polite">
+  <div class="mp-head">
+    <span class="mp-mode" id="mp-mode">MODO</span>
+    <button id="btn-collapse" class="btn-icon small" type="button" aria-label="Contraer panel">–</button>
+  </div>
+  <div id="mp-body" class="mp-body"></div>
+</aside>
+
+<!-- ══ Explicación ══════════════════════════════════════════════════════════ -->
+<section id="explain-panel" class="glass" hidden>
+  <div class="ep-head">
+    <span class="ep-title" id="ep-title">Explicación</span>
+    <button id="btn-ai" class="btn-sm ai" type="button">Explicar con IA</button>
+  </div>
+  <p class="ep-body" id="ep-body"></p>
+  <div id="ai-box" class="ai-box" hidden></div>
+</section>
+
+</div><!-- /#right-column -->
+
+<!-- ══ Controles de x₀ y h ══════════════════════════════════════════════════ -->
+<div id="controls-bar" class="glass" hidden>
+  <div class="ctrl">
+    <label for="x0-slider">x₀ <output id="x0-out">2</output></label>
+    <input id="x0-slider" type="range" min="0" max="1000" value="500">
+    <button id="btn-lock-x0" class="btn-mini" type="button" title="Fijar x₀ para que la mano no lo mueva">🔓 mano</button>
+  </div>
+  <div class="ctrl" id="h-control">
+    <label for="h-slider">h <output id="h-out">1</output></label>
+    <input id="h-slider" type="range" min="0" max="1000" value="750">
+    <button id="btn-lock-h" class="btn-mini" type="button" title="Fijar h para que la mano no lo mueva">🔓 mano</button>
+  </div>
+  <div class="ctrl ctrl-view">
+    <button id="btn-fit" class="btn-mini" type="button" title="Encuadrar la función">Encuadrar</button>
+    <button id="btn-zoom-out" class="btn-mini" type="button" aria-label="Alejar">−</button>
+    <button id="btn-zoom-in" class="btn-mini" type="button" aria-label="Acercar">+</button>
+  </div>
 </div>
 
-<div id="status">Esperando cámara…</div>
-<div id="shape-label">SÓLIDO DE REVOLUCIÓN</div>
-<div id="shape-eq">y = e^(−x²/2) , rotada alrededor del eje x</div>
+</div><!-- /#dock -->
 
-<!-- THREE.JS -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<!-- ══ Indicador de gesto ═══════════════════════════════════════════════════ -->
+<div id="gesture-badge" hidden>
+  <svg class="hold-ring" viewBox="0 0 44 44" aria-hidden="true">
+    <circle class="ring-bg" cx="22" cy="22" r="19"></circle>
+    <circle class="ring-fg" id="hold-ring-fg" cx="22" cy="22" r="19"></circle>
+  </svg>
+  <span class="gb-emoji" id="gb-emoji">✊</span>
+  <div class="gb-text">
+    <span class="gb-count" id="gb-count">0 dedos</span>
+    <span class="gb-mode" id="gb-mode">Partículas</span>
+  </div>
+</div>
 
-<!-- MEDIAPIPE -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<!-- ══ Vista de cámara ══════════════════════════════════════════════════════ -->
+<div id="preview-wrap" class="glass" hidden>
+  <canvas id="preview" width="220" height="124"></canvas>
+  <span class="pw-label">Cámara</span>
+</div>
 
-<script>
-// ─── TEXTURA CIRCULAR SUAVE ───────────────────────────────────────────────────
-function mkCircleTex() {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const cx = c.getContext('2d');
-  const g = cx.createRadialGradient(64,64,0,64,64,60);
-  g.addColorStop(0,'rgba(255,255,255,1)');
-  g.addColorStop(0.35,'rgba(255,255,255,0.85)');
-  g.addColorStop(1,'rgba(255,255,255,0)');
-  cx.fillStyle = g;
-  cx.beginPath(); cx.arc(64,64,60,0,Math.PI*2); cx.fill();
-  return new THREE.CanvasTexture(c);
-}
-const TEX_CIRCLE = mkCircleTex();
+<!-- ══ Tutorial ═════════════════════════════════════════════════════════════ -->
+<div id="tutorial" hidden>
+  <div class="tut-card glass">
+    <h2>Controlá las matemáticas con tu mano</h2>
+    <ul class="tut-list">
+      <li><span>☝</span><b>1 dedo</b><i>Pendiente</i></li>
+      <li><span>✌</span><b>2 dedos</b><i>Cociente incremental</i></li>
+      <li><span>🤟</span><b>3 dedos</b><i>Derivadas</i></li>
+      <li><span>🖖</span><b>4 dedos</b><i>Análisis completo</i></li>
+      <li><span>✋</span><b>5 dedos</b><i>Visualización</i></li>
+      <li><span>✊</span><b>Puño</b><i>Partículas</i></li>
+    </ul>
+    <p class="tut-note">
+      Mové la mano <b>horizontalmente</b> para desplazar x₀ · Separá o juntá índice y medio para cambiar <b>h</b> ·
+      Con la segunda mano, pellizcá para hacer <b>zoom</b>
+    </p>
+    <button id="tut-close" class="btn-primary" type="button">Entendido</button>
+  </div>
+</div>
 
-// ─── THREE.JS SCENE ───────────────────────────────────────────────────────────
-const scene    = new THREE.Scene();
-const camera3d = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth, innerHeight);
-document.body.insertBefore(renderer.domElement, document.body.firstChild);
-camera3d.position.z = 9;
+<!-- ══ Diálogo de IA ════════════════════════════════════════════════════════ -->
+<div id="ai-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="ai-dialog-title">
+  <div class="ai-card glass">
+    <h2 id="ai-dialog-title">Explicación con IA</h2>
+    <p>
+      Esta función es <b>opcional</b>. Los resultados matemáticos siempre los calcula el motor
+      determinista de la aplicación; la IA sólo los redacta en lenguaje natural y nunca los modifica.
+    </p>
+    <p class="warn">
+      Nunca pongas una API key en el navegador: esta página es estática y pública.
+      Desplegá el endpoint incluido en <code>api/explain.js</code> (Vercel) o
+      <code>netlify/functions/explain.js</code> (Netlify) y pegá acá su dirección.
+    </p>
+    <label for="ai-endpoint">Endpoint propio</label>
+    <input id="ai-endpoint" type="url" placeholder="https://tu-proyecto.vercel.app/api/explain" spellcheck="false">
+    <div id="ai-endpoint-msg" class="feedback"></div>
+    <div class="ai-actions">
+      <button id="ai-save" class="btn-primary" type="button">Guardar</button>
+      <button id="ai-clear" class="btn-ghost" type="button">Quitar</button>
+      <button id="ai-close" class="btn-ghost" type="button">Cerrar</button>
+    </div>
+  </div>
+</div>
 
-// ─── PARTÍCULAS ───────────────────────────────────────────────────────────────
-const N = 20000;
-const geo  = new THREE.BufferGeometry();
-const pos  = new Float32Array(N*3);
-const tgt  = new Float32Array(N*3);
-const col  = new Float32Array(N*3);
-const tcol = new Float32Array(N*3);
+<!-- ══ Avisos ═══════════════════════════════════════════════════════════════ -->
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<div id="fatal" hidden></div>
 
-geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-geo.setAttribute('color',    new THREE.BufferAttribute(col,3));
+<!-- Librerías (scripts clásicos: se ejecutan antes que los módulos) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
 
-const mat = new THREE.PointsMaterial({
-  size:0.085, map:TEX_CIRCLE, vertexColors:true,
-  transparent:true, opacity:0.9,
-  blending:THREE.AdditiveBlending, depthWrite:false
-});
-const ps = new THREE.Points(geo, mat);
-scene.add(ps);
-
-// ─── HELPER DE COLOR ──────────────────────────────────────────────────────────
-function setCol(i, c){ tcol[i*3]=c.r; tcol[i*3+1]=c.g; tcol[i*3+2]=c.b; }
-
-// ════════════════════════════════════════════════════════════════════════════
-//  FORMAS MATEMÁTICAS PARAMÉTRICAS
-// ════════════════════════════════════════════════════════════════════════════
-
-// ─── 1) SÓLIDO DE REVOLUCIÓN: y = e^(-x²/2) rotada alrededor del eje x ───────
-function morphRevolution(){
-  mat.size = 0.085;
-  const C = new THREE.Color();
-  for(let i = 0; i < N; i++){
-    const x = (Math.random() - 0.5) * 6;        // x ∈ [-3, 3]
-    const theta = Math.random() * Math.PI * 2;  // ángulo de revolución
-    const r = 2.0 * Math.exp(-x*x/2) + 0.05;    // radio = f(x)
-    tgt[i*3]   = x;
-    tgt[i*3+1] = r * Math.cos(theta);
-    tgt[i*3+2] = r * Math.sin(theta);
-    // Color por radio: magenta→rosa pálido en la cima
-    const t = r / 2.05;
-    C.setHSL(0.95 - t*0.08, 0.85, 0.45 + t*0.25);
-    setCol(i, C);
-  }
-}
-
-// ─── 2) TORO PARAMÉTRICO ─────────────────────────────────────────────────────
-//      x = (R + r·cos v)·cos u
-//      y = r·sin v
-//      z = (R + r·cos v)·sin u
-function morphTorus(){
-  mat.size = 0.08;
-  const R = 2.5, r = 0.95;
-  const C = new THREE.Color();
-  for(let i = 0; i < N; i++){
-    const u = Math.random() * Math.PI * 2;
-    const v = Math.random() * Math.PI * 2;
-    const cv = Math.cos(v);
-    tgt[i*3]   = (R + r*cv) * Math.cos(u);
-    tgt[i*3+1] = r * Math.sin(v);
-    tgt[i*3+2] = (R + r*cv) * Math.sin(u);
-    // Color por ángulo menor v → arcoíris circulando el tubo
-    C.setHSL((v / (Math.PI*2) + 0.08) % 1, 0.85, 0.58);
-    setCol(i, C);
-  }
-}
-
-// ─── 3) BANDA DE MÖBIUS ──────────────────────────────────────────────────────
-//      x = (R + s·cos(u/2))·cos u
-//      y = (R + s·cos(u/2))·sin u
-//      z = s·sin(u/2)
-function morphMobius(){
-  mat.size = 0.08;
-  const R = 2.6;
-  const C = new THREE.Color();
-  for(let i = 0; i < N; i++){
-    const u  = Math.random() * Math.PI * 2;
-    const s  = (Math.random() - 0.5) * 1.8;   // ancho de la banda
-    const cu2 = Math.cos(u/2);
-    const su2 = Math.sin(u/2);
-    tgt[i*3]   = (R + s*cu2) * Math.cos(u);
-    tgt[i*3+1] = (R + s*cu2) * Math.sin(u);
-    tgt[i*3+2] = s * su2;
-    // Color por u: arcoíris siguiendo el giro completo
-    C.setHSL((u / (Math.PI*2) * 0.85 + 0.65) % 1, 0.85, 0.6);
-    setCol(i, C);
-  }
-}
-
-// ─── 4) ATRACTOR DE LORENZ ───────────────────────────────────────────────────
-//      ẋ = σ(y − x)
-//      ẏ = x(ρ − z) − y
-//      ż = xy − βz
-//      con  σ=10, ρ=28, β=8/3
-function morphLorenz(){
-  mat.size = 0.06;
-  const sigma = 10, rho = 28, beta = 8/3, dt = 0.005;
-  let x = 0.1, y = 0, z = 0;
-  // Warmup para llegar al atractor
-  for(let k = 0; k < 1500; k++){
-    const dx = sigma*(y-x), dy = x*(rho-z)-y, dz = x*y - beta*z;
-    x += dx*dt; y += dy*dt; z += dz*dt;
-  }
-  const C = new THREE.Color();
-  for(let i = 0; i < N; i++){
-    const dx = sigma*(y-x), dy = x*(rho-z)-y, dz = x*y - beta*z;
-    x += dx*dt; y += dy*dt; z += dz*dt;
-    // Atractor vive en x∈[-20,20], y∈[-30,30], z∈[0,50] → escalar y centrar
-    tgt[i*3]   = x * 0.13;
-    tgt[i*3+1] = (z - 25) * 0.13;
-    tgt[i*3+2] = y * 0.13;
-    // Color: cyan → magenta a lo largo de la trayectoria
-    const t = i / N;
-    C.setHSL(0.52 - t*0.42, 0.95, 0.55);
-    setCol(i, C);
-  }
-}
-
-// ─── 5) ONDA 3D / SOMBRERO MEXICANO: z = cos(2r)·e^(-r²/4) ───────────────────
-function morphWave(){
-  mat.size = 0.07;
-  const C = new THREE.Color();
-  for(let i = 0; i < N; i++){
-    // Distribución uniforme en disco
-    const rad = Math.sqrt(Math.random()) * 4.2;
-    const phi = Math.random() * Math.PI * 2;
-    const x = rad * Math.cos(phi);
-    const y = rad * Math.sin(phi);
-    const r = Math.sqrt(x*x + y*y);
-    const z = Math.cos(r*2) * Math.exp(-r*r/4) * 1.9;
-    tgt[i*3]   = x;
-    tgt[i*3+1] = z;       // altura
-    tgt[i*3+2] = y;
-    // Color por altura z: azul abajo → cyan medio → amarillo arriba
-    const t = THREE.MathUtils.clamp((z + 1.9) / 3.8, 0, 1);
-    C.setHSL(0.62 - t*0.5, 0.85, 0.45 + t*0.2);
-    setCol(i, C);
-  }
-}
-
-// ─── REGISTRO DE FORMAS ──────────────────────────────────────────────────────
-const SHAPES   = ['revolution','torus','mobius','lorenz','wave'];
-const LABELS   = ['SÓLIDO DE REVOLUCIÓN','TORO','BANDA DE MÖBIUS','ATRACTOR DE LORENZ','ONDA 3D'];
-const EQUATIONS= [
-  'y = e^(−x²/2) , rotada alrededor del eje x',
-  '((R + r·cos v)·cos u , r·sin v , (R + r·cos v)·sin u)',
-  '((R + s·cos(u/2))·cos u , (R + s·cos(u/2))·sin u , s·sin(u/2))',
-  'ẋ = σ(y−x) ,  ẏ = x(ρ−z)−y ,  ż = xy − βz',
-  'z = cos(2r)·e^(−r²/4) ,  r = √(x²+y²)'
-];
-const morphFns = [morphRevolution, morphTorus, morphMobius, morphLorenz, morphWave];
-
-let currentShape = 'revolution';
-morphRevolution();
-for(let i=0;i<N*3;i++) pos[i]=tgt[i]+(Math.random()-0.5)*9;
-for(let i=0;i<N*3;i++) col[i]=tcol[i];
-
-function setShape(idx){
-  const name = SHAPES[idx];
-  if(name===currentShape) return;
-  currentShape=name;
-  morphFns[idx]();
-  document.getElementById('shape-label').innerText = LABELS[idx];
-  document.getElementById('shape-eq').innerText    = EQUATIONS[idx];
-}
-
-// ─── ESTADO DE LA MANO ───────────────────────────────────────────────────────
-let pushX=9999, pushY=9999, isPushing=false;
-let targetRotX=0, targetRotY=0;
-let targetScale=1;
-
-// ─── CALLBACK DE MEDIAPIPE ───────────────────────────────────────────────────
-const hCanvas = document.getElementById('hand-canvas');
-const hCtx    = hCanvas.getContext('2d');
-
-function onResults(results){
-  hCtx.clearRect(0,0,hCanvas.width,hCanvas.height);
-
-  if(!results.multiHandLandmarks || results.multiHandLandmarks.length===0){
-    isPushing=false; return;
-  }
-
-  results.multiHandLandmarks.forEach((lm, idx)=>{
-    const label = results.multiHandedness[idx].label; // "Left" o "Right"
-
-    // Dibujar esqueleto
-    if(typeof drawConnectors !== 'undefined'){
-      drawConnectors(hCtx, lm, HAND_CONNECTIONS, {color:'rgba(0,255,238,0.85)', lineWidth:2.5});
-      drawLandmarks(hCtx, lm, {color:'rgba(255,255,255,0.9)', lineWidth:1.5, radius:4});
-    }
-
-    if(label==='Right'){
-      const nx = lm[8].x;
-      const ny = lm[8].y;
-
-      // Mapeo al espacio 3D
-      pushX = (nx - 0.5) * -14;
-      pushY = (0.5 - ny) * 14;
-
-      // Rotación desde el centro de la palma
-      targetRotY = (lm[9].x - 0.5) * 3.5;
-      targetRotX = (lm[9].y - 0.5) * 2.5;
-
-      // Contar dedos extendidos (sin pulgar)
-      let fingers = 0;
-      const tips   = [8,12,16,20];
-      const joints = [6,10,14,18];
-      tips.forEach((tip,i) => { if(lm[tip].y < lm[joints[i]].y) fingers++; });
-
-      isPushing = (fingers <= 1);
-
-      if      (fingers===0) setShape(0); // revolución
-      else if (fingers===2) setShape(1); // toro
-      else if (fingers===3) setShape(2); // möbius
-      else if (fingers===4) setShape(3); // lorenz
-      else if (fingers===5) setShape(4); // onda
-    }
-
-    if(label==='Left'){
-      const dist = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
-      targetScale = THREE.MathUtils.clamp(dist * 5.5, 0.3, 3.5);
-    }
-  });
-}
-
-// ─── ARRANQUE ────────────────────────────────────────────────────────────────
-function startApp(){
-  document.getElementById('gesture-hint').style.display='none';
-  document.getElementById('status').innerText='Iniciando cámara…';
-
-  const vid = document.getElementById('vid');
-
-  const hands = new Hands({
-    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
-  });
-  hands.setOptions({
-    maxNumHands:2, modelComplexity:1,
-    minDetectionConfidence:0.6, minTrackingConfidence:0.6,
-    selfieMode:true
-  });
-  hands.onResults(onResults);
-
-  const cam = new Camera(vid, {
-    onFrame: async () => { await hands.send({image: vid}); },
-    width:1280, height:720
-  });
-  cam.start().then(()=>{
-    document.getElementById('status').innerText=
-      '0 = Revolución · 2 = Toro · 3 = Möbius · 4 = Lorenz · 5 = Onda · Mano izq = Zoom';
-  }).catch(()=>{
-    document.getElementById('status').innerText='Error de cámara — revisa permisos';
-  });
-}
-
-// ─── RESIZE ──────────────────────────────────────────────────────────────────
-function onResize(){
-  camera3d.aspect = innerWidth/innerHeight;
-  camera3d.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-  hCanvas.width  = innerWidth;
-  hCanvas.height = innerHeight;
-}
-window.addEventListener('resize', onResize);
-onResize();
-
-// ─── LOOP DE ANIMACIÓN ───────────────────────────────────────────────────────
-let rotX=0, rotY=0, curScale=1;
-const clock = new THREE.Clock();
-
-function animate(){
-  requestAnimationFrame(animate);
-  const posAttr = geo.getAttribute('position');
-  const colAttr = geo.getAttribute('color');
-
-  for(let i=0;i<N;i++){
-    for(let j=0;j<3;j++){
-      const idx=i*3+j;
-      posAttr.array[idx] += (tgt[idx] - posAttr.array[idx]) * 0.07;
-      colAttr.array[idx] += (tcol[idx]- colAttr.array[idx]) * 0.04;
-    }
-    if(isPushing){
-      const dx=posAttr.array[i*3]  -pushX;
-      const dy=posAttr.array[i*3+1]-pushY;
-      const dSq=dx*dx+dy*dy;
-      if(dSq<3.2 && dSq>0.001){
-        const f=(3.2-dSq)*0.22;
-        posAttr.array[i*3]  +=dx*f;
-        posAttr.array[i*3+1]+=dy*f;
-      }
-    }
-  }
-
-  posAttr.needsUpdate=true;
-  colAttr.needsUpdate=true;
-
-  const t=clock.getElapsedTime();
-  rotX += (targetRotX - rotX)*0.06;
-  rotY += (targetRotY - rotY)*0.06;
-  curScale += (targetScale - curScale)*0.08;
-
-  // Rotación lenta autónoma + rotación de la mano
-  ps.rotation.x = rotX + Math.sin(t*0.09)*0.05;
-  ps.rotation.y = rotY + t*0.08;  // giro continuo para apreciar las formas 3D
-  ps.scale.setScalar(curScale);
-
-  renderer.render(scene, camera3d);
-}
-animate();
-</script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

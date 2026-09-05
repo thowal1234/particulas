@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tests · Motor matemático</title>
+<style>
+  body { background:#05070f; color:#c9d6ef; font:14px/1.6 ui-monospace,'Cascadia Code',Consolas,monospace; padding:28px; }
+  h1 { font-size:18px; color:#7fe7ff; letter-spacing:.08em; margin-bottom:4px; }
+  .sub { color:#5f6f92; margin-bottom:22px; }
+  .grp { margin:18px 0 6px; color:#a06bff; letter-spacing:.06em; text-transform:uppercase; font-size:12px; }
+  .ok   { color:#4be8a4; }
+  .fail { color:#ff6b8a; }
+  .row  { padding:2px 0; white-space:pre-wrap; }
+  #summary { margin-top:26px; padding:14px 18px; border-radius:10px; font-size:15px; }
+  .pass-all { background:rgba(75,232,164,.1); border:1px solid rgba(75,232,164,.35); color:#4be8a4; }
+  .has-fail { background:rgba(255,107,138,.1); border:1px solid rgba(255,107,138,.35); color:#ff6b8a; }
+</style>
+</head>
+<body>
+<h1>MATH PARTICLE HANDS · Tests del motor matemático</h1>
+<div class="sub">Verificación determinista de parsing, derivadas, evaluación, dominio y análisis.</div>
+<div id="out"></div>
+<div id="summary"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.min.js"></script>
+<script type="module">
+import { MathEngine, normalizeInput, toReal, roundNoise, fmtNum, fmtSigned } from '../js/mathEngine.js';
+import { GestureController, spreadToH, palmToX0 } from '../js/gestureController.js';
+
+const out = document.getElementById('out');
+let pass = 0, fail = 0;
+
+function group(name) {
+  const d = document.createElement('div');
+  d.className = 'grp'; d.textContent = name; out.appendChild(d);
+}
+function check(label, cond, detail = '') {
+  const d = document.createElement('div');
+  d.className = 'row ' + (cond ? 'ok' : 'fail');
+  d.textContent = (cond ? '  ✓ ' : '  ✗ ') + label + (cond ? '' : '   → ' + detail);
+  out.appendChild(d);
+  cond ? pass++ : fail++;
+}
+const near = (a, b, tol = 1e-6) => Number.isFinite(a) && Math.abs(a - b) <= tol;
+
+function engineFor(src) {
+  const e = new MathEngine();
+  const r = e.setExpression(src);
+  return { e, r };
+}
+
+// ── 1. Normalización de la entrada ───────────────────────────────────────────
+group('1 · Normalización de entrada');
+check('"f(x) = x^2 + 3x - 4" quita el encabezado',
+  normalizeInput('f(x) = x^2 + 3x - 4').expr === 'x^2 + 3x - 4',
+  normalizeInput('f(x) = x^2 + 3x - 4').expr);
+check('"y = 2x + 5" quita el encabezado',
+  normalizeInput('y = 2x + 5').expr === '2x + 5', normalizeInput('y = 2x + 5').expr);
+check('"x²" → "x^2"', normalizeInput('x²').expr === 'x^2', normalizeInput('x²').expr);
+check('"x¹²" → "x^(12)"', normalizeInput('x¹²').expr === 'x^(12)', normalizeInput('x¹²').expr);
+check('"sen(x)" → "sin(x)"', normalizeInput('sen(x)').expr === 'sin(x)', normalizeInput('sen(x)').expr);
+check('"ln(x)" → "log(x)"', normalizeInput('ln(x)').expr === 'log(x)', normalizeInput('ln(x)').expr);
+check('"√(x)" → "sqrt(x)"', normalizeInput('√(x)').expr === 'sqrt(x)', normalizeInput('√(x)').expr);
+check('"x(x+1)" → "x*(x+1)" (evita llamada a función)',
+  normalizeInput('x(x+1)').expr === 'x*(x+1)', normalizeInput('x(x+1)').expr);
+check('"sin(x)" NO se convierte en "sin*(x)"',
+  normalizeInput('sin(x)').expr === 'sin(x)', normalizeInput('sin(x)').expr);
+check('coma decimal "2,5*x" → "2.5*x"',
+  normalizeInput('2,5*x').expr === '2.5*x', normalizeInput('2,5*x').expr);
+check('menos unicode "−x" → "-x"', normalizeInput('−x').expr === '-x', normalizeInput('−x').expr);
+
+// ── 2. Conversión a real ─────────────────────────────────────────────────────
+group('2 · Coerción a números reales');
+check('Complex i → NaN', Number.isNaN(toReal(math.complex(0, 1))));
+check('Complex 3+0i → 3', toReal(math.complex(3, 0)) === 3);
+check('Infinity → NaN', Number.isNaN(toReal(Infinity)));
+check('NaN → NaN', Number.isNaN(toReal(NaN)));
+check('42 → 42', toReal(42) === 42);
+check('roundNoise(1.9999999999997) → 2', roundNoise(1.9999999999997) === 2);
+check('fmtSigned(−2) pone paréntesis: "(−2)"', fmtSigned(-2) === '(−2)', fmtSigned(-2));
+check('fmtSigned(18) no los pone', fmtSigned(18) === '18', fmtSigned(18));
+check('fmtNum(0) → "0" sin signo', fmtNum(0) === '0', fmtNum(0));
+check('fmtNum(NaN) → "—"', fmtNum(NaN) === '—', fmtNum(NaN));
+check('fmtNum(−0.5) usa el menos tipográfico', fmtNum(-0.5) === '−0.5', fmtNum(-0.5));
+
+// ── 3. Casos de prueba obligatorios (§32) ────────────────────────────────────
+group('3 · Derivadas — casos obligatorios');
+const cases = [
+  { src: 'f(x) = 2x + 5',  d1: (x) => 2,            d2: () => 0,           linear: true },
+  { src: 'x^2',            d1: (x) => 2 * x,        d2: () => 2 },
+  { src: 'x^3 - 4x',       d1: (x) => 3 * x * x - 4, d2: (x) => 6 * x },
+  { src: 'sin(x)',         d1: Math.cos,            d2: (x) => -Math.sin(x) },
+  { src: 'e^x',            d1: Math.exp,            d2: Math.exp },
+  { src: 'cos(x) + x^2',   d1: (x) => -Math.sin(x) + 2 * x, d2: (x) => 2 - Math.cos(x) },
+  { src: '1/x',            d1: (x) => -1 / (x * x), d2: (x) => 2 / (x ** 3) },
+  { src: 'sqrt(x)',        d1: (x) => 0.5 / Math.sqrt(x), d2: (x) => -0.25 / Math.sqrt(x) ** 3 },
+  { src: 'ln(x)',          d1: (x) => 1 / x,        d2: (x) => -1 / (x * x) },
+  { src: 'x^3 - 3x^2 + 2', d1: (x) => 3 * x * x - 6 * x, d2: (x) => 6 * x - 6 },
+];
+for (const c of cases) {
+  const { e, r } = engineFor(c.src);
+  check(`«${c.src}» se interpreta`, r.ok, r.error || '');
+  if (!r.ok) continue;
+  const probes = [0.7, 1.3, 2, 3.4];
+  let okD1 = true, okD2 = true, bad = '';
+  for (const x of probes) {
+    const exp1 = c.d1(x), exp2 = c.d2(x);
+    if (Number.isFinite(exp1)) { if (!near(e.df(x), exp1, 1e-5)) { okD1 = false; bad = `x=${x}: f'=${e.df(x)} ≠ ${exp1}`; } }
+    if (Number.isFinite(exp2)) { if (!near(e.d2f(x), exp2, 1e-4)) { okD2 = false; bad ||= `x=${x}: f''=${e.d2f(x)} ≠ ${exp2}`; } }
+  }
+  check(`   f'(x) correcta  [${e.dPlain ?? 'numérica'}]`, okD1, bad);
+  check(`   f''(x) correcta [${e.d2Plain ?? 'numérica'}]`, okD2, bad);
+  if (c.linear) {
+    check('   detectada como lineal m=2, b=5',
+      e.isLinear && e.linear.m === 2 && e.linear.b === 5, JSON.stringify(e.linear));
+  }
+}
+
+// ── 4. Restricciones de dominio ──────────────────────────────────────────────
+group('4 · Dominio y valores no reales');
+{
+  const { e } = engineFor('sqrt(x)');
+  check('sqrt(−1) → NaN (no complejo)', Number.isNaN(e.f(-1)), String(e.f(-1)));
+  check('sqrt(4) = 2', near(e.f(4), 2));
+  const a = e.analyze(-6, 6);
+  check('dominio de sqrt(x) empieza exactamente en 0',
+    a.domainGaps.length === 1 && near(a.domainGaps[0].to, 0, 1e-6),
+    JSON.stringify(a.domainGaps));
+}
+{
+  const { e } = engineFor('ln(x)');
+  check('ln(−2) → NaN', Number.isNaN(e.f(-2)));
+  check('ln(0) → NaN (era −Infinity)', Number.isNaN(e.f(0)));
+  check('ln(e) = 1', near(e.f(Math.E), 1));
+}
+{
+  const { e } = engineFor('1/x');
+  check('1/0 → NaN (era Infinity)', Number.isNaN(e.f(0)), String(e.f(0)));
+  check('1/4 = 0.25', near(e.f(4), 0.25));
+  const a = e.analyze(-6, 6);
+  check('detecta el polo en x = 0', a.poles.some((p) => near(p, 0, 1e-4)), JSON.stringify(a.poles));
+  check('no reporta raíz falsa en x = 0', a.roots.length === 0, JSON.stringify(a.roots));
+}
+{
+  const { e, r } = engineFor('abs(x)');
+  check('«abs(x)» se interpreta', r.ok, r.error || '');
+  check('abs(−3) = 3', near(e.f(-3), 3));
+  check("abs'(2) = 1", near(e.df(2), 1, 1e-5), String(e.df(2)));
+  check("abs'(−2) = −1", near(e.df(-2), -1, 1e-5), String(e.df(-2)));
+}
+{
+  // En [−5, 5] la tangente tiene exactamente 4 asíntotas: ±π/2 y ±3π/2 (±4,712)
+  const { e } = engineFor('tan(x)');
+  const a = e.analyze(-5, 5);
+  const p = a.poles.slice().sort((u, v) => u - v);
+  const expected = [-3 * Math.PI / 2, -Math.PI / 2, Math.PI / 2, 3 * Math.PI / 2];
+  check('tan(x): 4 asíntotas verticales en ±π/2 y ±3π/2',
+    p.length === 4 && expected.every((q, i) => near(p[i], q, 1e-3)),
+    JSON.stringify(p.map((v) => v.toFixed(4))));
+  check('tan(x): no confunde las asíntotas con raíces (raíces en −π,0,π)',
+    a.roots.length === 3 && near(a.roots[1].x, 0, 1e-6),
+    JSON.stringify(a.roots.map((r) => r.x.toFixed(3))));
+}
+{
+  // Explosión del mismo signo: 1/x² no cambia de signo pero sí tiene polo
+  const { e } = engineFor('1/x^2');
+  const a = e.analyze(-4, 4);
+  check('1/x² detecta el polo en 0 (sin cambio de signo)',
+    a.poles.some((q) => near(q, 0, 1e-4)), JSON.stringify(a.poles));
+}
+{
+  // Una recta muy empinada NO debe generar polos falsos
+  const { e } = engineFor('1000*x');
+  const a = e.analyze(-6, 6);
+  check('1000·x no genera asíntotas falsas', a.poles.length === 0, JSON.stringify(a.poles));
+}
+
+// ── 5. Entradas inválidas ────────────────────────────────────────────────────
+group('5 · Manejo de errores');
+const bad = [
+  ['', 'vacío'],
+  ['x^2 +', 'expresión incompleta'],
+  ['((x+1)', 'paréntesis desbalanceados'],
+  ['a*x + b', 'dos variables libres'],
+  ['fooo(x)', 'función inexistente'],
+];
+for (const [src, why] of bad) {
+  const { r } = engineFor(src);
+  check(`rechaza ${why}: «${src}»`, !r.ok && !!r.error, JSON.stringify(r));
+  if (!r.ok) check('   entrega una sugerencia útil', !!r.hint, JSON.stringify(r));
+}
+for (const [src, expected] of [['cosen(x)', 'cos'], ['sinn(x)', 'sin'], ['sqrtt(x)', 'sqrt']]) {
+  const { r } = engineFor(src);
+  check(`«${src}» se reporta como función desconocida, no como "dos variables"`,
+    !r.ok && /No conocemos la función/.test(r.error), JSON.stringify(r));
+  check(`   sugiere «${expected}»`, !r.ok && r.hint.includes(`decir ${expected}`), r.hint);
+}
+check('«x(x+1)» sigue siendo multiplicación implícita válida', engineFor('x(x+1)').r.ok);
+check('«(x+1)(x-1)» es válida', engineFor('(x+1)(x-1)').r.ok);
+check('«sin(x)cos(x)» es válida', engineFor('sin(x)cos(x)').r.ok);
+check('«a(x+1)» sí reporta dos variables', !engineFor('a(x+1)').r.ok);
+{
+  const { e, r } = engineFor('f(t) = t^2');
+  check('acepta f(t)=t² renombrando la variable', r.ok && !!r.note, JSON.stringify(r));
+  if (r.ok) check('   f(3) = 9', near(e.f(3), 9));
+}
+
+// ── 6. Cociente incremental ──────────────────────────────────────────────────
+group('6 · Cociente incremental');
+{
+  const { e } = engineFor('x^2');
+  const q = e.differenceQuotient(2, 1);
+  check('[f(3)−f(2)]/1 = 5', near(q.value, 5), String(q.value));
+  check('   f(x₀) = 4', near(q.fx0, 4));
+  check('   f(x₀+h) = 9', near(q.fx0h, 9));
+  check('h=0.001 → tiende a f′(2)=4', near(e.differenceQuotient(2, 0.001).value, 4, 1e-2));
+  check('h=0 → NaN, no rompe', Number.isNaN(e.differenceQuotient(2, 0).value));
+  const q2 = e.differenceQuotient(2, -1);
+  check('h negativo funciona: [f(1)−f(2)]/(−1) = 3', near(q2.value, 3), String(q2.value));
+}
+{
+  const { e } = engineFor('sqrt(x)');
+  check('cociente fuera de dominio → NaN sin romper',
+    Number.isNaN(e.differenceQuotient(0.5, -2).value));
+}
+
+// ── 7. Análisis completo ─────────────────────────────────────────────────────
+group('7 · Análisis completo');
+{
+  const { e } = engineFor('x^3 - 4x');
+  const a = e.analyze(-6, 6);
+  const rx = a.roots.map((r) => r.x).sort((p, q) => p - q);
+  check('raíces de x³−4x: −2, 0, 2',
+    rx.length === 3 && near(rx[0], -2, 1e-5) && near(rx[1], 0, 1e-5) && near(rx[2], 2, 1e-5),
+    JSON.stringify(rx));
+  const cx = a.critical.map((c) => c.x);
+  check('2 puntos críticos en ±2/√3',
+    cx.length === 2 && near(Math.abs(cx[0]), 2 / Math.sqrt(3), 1e-5), JSON.stringify(cx));
+  check('clasifica máximo y mínimo',
+    a.critical.some((c) => c.kind === 'máximo') && a.critical.some((c) => c.kind === 'mínimo'),
+    JSON.stringify(a.critical.map((c) => c.kind)));
+  check('inflexión en x = 0',
+    a.inflections.length === 1 && near(a.inflections[0].x, 0, 1e-5), JSON.stringify(a.inflections));
+  check('ordenada al origen = 0', near(a.yIntercept, 0));
+}
+{
+  const { e } = engineFor('x^2');
+  const a = e.analyze(-5, 5);
+  check('raíz doble de x² detectada en 0',
+    a.roots.length === 1 && near(a.roots[0].x, 0, 1e-4), JSON.stringify(a.roots.map((r) => r.x)));
+  check('mínimo en x = 0', a.critical.length === 1 && a.critical[0].kind === 'mínimo');
+  check('sin inflexiones', a.inflections.length === 0);
+  check('cóncava hacia arriba en todo el rango',
+    a.concavity.length === 1 && a.concavity[0].label === 'cóncava hacia arriba',
+    JSON.stringify(a.concavity));
+}
+{
+  const { e } = engineFor('x^3 - 3x^2 + 2');
+  check("f'(2) = 0 (tangente horizontal)", near(e.df(2), 0, 1e-9), String(e.df(2)));
+  check("f''(2) = 6", near(e.d2f(2), 6, 1e-6), String(e.d2f(2)));
+  const a = e.analyze(-4, 5);
+  check('críticos en x=0 (máx) y x=2 (mín)',
+    a.critical.length === 2 && near(a.critical[0].x, 0, 1e-5) && a.critical[0].kind === 'máximo'
+      && near(a.critical[1].x, 2, 1e-5) && a.critical[1].kind === 'mínimo',
+    JSON.stringify(a.critical));
+}
+{
+  const { e } = engineFor('sin(x)');
+  const a = e.analyze(-7, 7);
+  check('sin(x): raíces en −2π,−π,0,π,2π', a.roots.length === 5, JSON.stringify(a.roots.map((r) => r.x.toFixed(3))));
+  check('sin(x): 4 puntos críticos', a.critical.length === 4, JSON.stringify(a.critical.map((c) => c.x.toFixed(3))));
+}
+
+// ── 8. Muestreo y discontinuidades ───────────────────────────────────────────
+group('8 · Muestreo y cortes de curva');
+{
+  const { e } = engineFor('1/x');
+  const s = e.sample('f', -5, 5, 800);
+  const segs = MathEngine.segments(s.xs, s.ys, 60);
+  check('1/x se parte en 2 tramos (asíntota en 0)', segs.length === 2, `tramos: ${segs.length}`);
+}
+{
+  const { e } = engineFor('sqrt(x)');
+  const s = e.sample('f', -5, 5, 800);
+  const segs = MathEngine.segments(s.xs, s.ys, 60);
+  check('sqrt(x) da 1 solo tramo (x ≥ 0)', segs.length === 1, `tramos: ${segs.length}`);
+  check('   el tramo empieza en x ≈ 0', segs[0] && segs[0].xs[0] >= -0.02, String(segs[0]?.xs[0]));
+}
+{
+  const { e } = engineFor('x^2');
+  const t0 = performance.now();
+  e.sample('f', -10, 10, 1600);
+  const dt = performance.now() - t0;
+  check(`muestreo de 1600 puntos < 30 ms (${dt.toFixed(1)} ms)`, dt < 30, `${dt.toFixed(1)} ms`);
+  const t1 = performance.now();
+  e.sample('f', -10, 10, 1600);
+  check(`segundo muestreo cacheado < 1 ms (${(performance.now() - t1).toFixed(3)} ms)`,
+    performance.now() - t1 < 1);
+}
+
+// ── 9. Reconocimiento de gestos (landmarks sintéticos) ───────────────────────
+group('9 · Conteo de dedos');
+
+const MCP = { 5: [-0.09, -0.33], 9: [-0.02, -0.36], 13: [0.05, -0.34], 17: [0.12, -0.30] };
+const FINGER_IDS = [[5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]];
+
+/**
+ * Genera una mano sintética. `flags` = [pulgar, índice, medio, anular, meñique].
+ * `angle` rota toda la mano para comprobar la invariancia a la rotación.
+ */
+function makeHand(flags, angle = 0) {
+  const lm = new Array(21);
+  lm[0] = [0, 0];
+  FINGER_IDS.forEach(([mcp, pip, dip, tip], i) => {
+    const base = MCP[mcp];
+    const ext = flags[i + 1];
+    const d = ext ? [0.12, 0.20, 0.28] : [0.10, 0.06, 0.02];
+    lm[mcp] = base;
+    lm[pip] = [base[0], base[1] - d[0]];
+    lm[dip] = [base[0], base[1] - d[1]];
+    lm[tip] = [base[0], base[1] - d[2]];
+  });
+  if (flags[0]) {           // pulgar extendido: se aleja del meñique
+    lm[1] = [-0.08, -0.10]; lm[2] = [-0.13, -0.16];
+    lm[3] = [-0.16, -0.22]; lm[4] = [-0.24, -0.26];
+  } else {                  // pulgar recogido sobre la palma
+    lm[1] = [-0.08, -0.10]; lm[2] = [-0.12, -0.16];
+    lm[3] = [-0.10, -0.20]; lm[4] = [-0.02, -0.24];
+  }
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  return lm.map(([x, y]) => ({
+    x: 0.5 + (x * cos - y * sin),
+    y: 0.5 + (x * sin + y * cos),
+    z: 0,
+  }));
+}
+
+const COMBOS = [
+  [[false, false, false, false, false], 0, '✊ puño'],
+  [[false, true, false, false, false], 1, '☝ índice'],
+  [[false, true, true, false, false], 2, '✌ índice + medio'],
+  [[false, true, true, true, false], 3, 'tres dedos'],
+  [[false, true, true, true, true], 4, 'cuatro dedos'],
+  [[true, true, true, true, true], 5, '✋ mano abierta'],
+  [[true, false, false, false, false], 1, 'sólo pulgar'],
+  [[true, true, false, false, false], 2, 'pulgar + índice'],
+];
+
+for (const [flags, expected, label] of COMBOS) {
+  const r = GestureController.countFingers(makeHand(flags));
+  check(`${label} → ${expected}`, r.count === expected, `contó ${r.count} (${r.flags})`);
+}
+
+// Invariancia a la rotación: el original comparaba coordenadas Y absolutas y fallaba
+for (const deg of [-60, -30, 30, 60, 90, 135, 180]) {
+  const ang = deg * Math.PI / 180;
+  let allOk = true, detail = '';
+  for (const [flags, expected, label] of COMBOS) {
+    const r = GestureController.countFingers(makeHand(flags, ang));
+    if (r.count !== expected) { allOk = false; detail = `${label}: ${r.count} ≠ ${expected}`; }
+  }
+  check(`mano rotada ${deg}° sigue contando bien`, allOk, detail);
+}
+
+check('el pulgar SÍ se cuenta (el original nunca llegaba a 5)',
+  GestureController.countFingers(makeHand([true, true, true, true, true])).count === 5);
+
+// ── 10. Estabilidad del gesto ────────────────────────────────────────────────
+group('10 · Estabilidad y debounce');
+{
+  const g = new GestureController({ holdMs: 400, exitHoldMs: 400 });
+  const openHand = [makeHand([false, true, true, true, false])];
+  const handed = [{ label: 'Right' }];
+  let t = 1000;
+  g.update(openHand, handed, t);
+  check('un solo frame con 3 dedos NO cambia de modo', g.committed === 0, `committed=${g.committed}`);
+
+  for (let k = 0; k < 5; k++) { t += 33; g.update(openHand, handed, t); }
+  check('a los ~165 ms todavía no confirma', g.committed === 0, `committed=${g.committed}`);
+  check('   el progreso de retención avanza', g.holdProgress > 0.2 && g.holdProgress < 1,
+    String(g.holdProgress.toFixed(2)));
+
+  for (let k = 0; k < 10; k++) { t += 33; g.update(openHand, handed, t); }
+  check('pasados ~495 ms sí confirma DERIVADAS', g.committed === 3 && g.mode === 'derivatives',
+    `committed=${g.committed} mode=${g.mode}`);
+}
+{
+  // Parpadeo rápido entre gestos: no debe confirmar ninguno
+  const g = new GestureController({ holdMs: 400, exitHoldMs: 400 });
+  const handed = [{ label: 'Right' }];
+  const a = [makeHand([false, true, false, false, false])];
+  const b = [makeHand([false, true, true, true, true])];
+  let t = 1000;
+  for (let k = 0; k < 30; k++) { t += 33; g.update(k % 2 ? a : b, handed, t); }
+  check('alternar dedos rápido NO confirma ningún modo', g.committed === 0, `committed=${g.committed}`);
+}
+{
+  // Sin manos se conserva el último modo confirmado
+  const g = new GestureController({ holdMs: 200, exitHoldMs: 200 });
+  const handed = [{ label: 'Right' }];
+  const two = [makeHand([false, true, true, false, false])];
+  let t = 1000;
+  for (let k = 0; k < 20; k++) { t += 33; g.update(two, handed, t); }
+  check('confirma COCIENTE con 2 dedos', g.committed === 2, `committed=${g.committed}`);
+  g.update(null, null, t + 100);
+  check('   al desaparecer la mano conserva el modo', g.committed === 2 && !g.present);
+}
+
+// ── 11. Mapeos de mano a parámetros ──────────────────────────────────────────
+group('11 · Mapeo de mano a x₀ y h');
+{
+  const v = { xMin: -10, xMax: 10 };
+  check('mano al centro → x₀ = 0', near(palmToX0(0.5, v), 0, 1e-9), String(palmToX0(0.5, v)));
+  check('mano a la izquierda → x₀ negativo', palmToX0(0.1, v) <= -9.9, String(palmToX0(0.1, v)));
+  check('mano a la derecha → x₀ positivo', palmToX0(0.9, v) >= 9.9, String(palmToX0(0.9, v)));
+  check('fuera de rango se recorta', palmToX0(-5, v) === -10 && palmToX0(5, v) === 10);
+  check('invertir el eje funciona', near(palmToX0(0.9, v, true), -10, 1e-9));
+}
+{
+  check('dedos juntos → h mínimo (0.01)', near(spreadToH(0.05), 0.01, 1e-9), String(spreadToH(0.05)));
+  check('dedos bien separados → h máximo (2)', near(spreadToH(1.5), 2, 1e-9), String(spreadToH(1.5)));
+  const mid = spreadToH(0.655);
+  check('separación intermedia → h intermedio en escala log', mid > 0.1 && mid < 0.2, String(mid));
+  check('h siempre positivo y acotado',
+    [0, 0.3, 0.6, 0.9, 1.2, 3].every((s) => { const h = spreadToH(s); return h >= 0.01 && h <= 2; }));
+  check('la separación mayor siempre da mayor h (monótona)',
+    [0.2, 0.4, 0.6, 0.8, 1.0].every((s, i, arr) => i === 0 || spreadToH(s) > spreadToH(arr[i - 1])));
+}
+
+// ── Resumen ──────────────────────────────────────────────────────────────────
+const s = document.getElementById('summary');
+s.className = fail === 0 ? 'pass-all' : 'has-fail';
+s.textContent = fail === 0
+  ? `✓ ${pass} verificaciones superadas, 0 fallos.`
+  : `✗ ${fail} fallos sobre ${pass + fail} verificaciones.`;
+</script>
+</body>
+</html>
